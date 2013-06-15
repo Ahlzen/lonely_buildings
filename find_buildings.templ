@@ -1,30 +1,36 @@
 BEGIN;
 
 -- Step 1: Buffer roads
-CREATE TABLE {{DEST_PREFIX}}_roadbuffers AS SELECT osm_id, ST_Buffer(way, 150.0, 3) AS way FROM {{SRC_PREFIX}}_line WHERE highway IS NOT NULL;
+CREATE TABLE {{DEST_PREFIX}}_roadbuffers AS
+SELECT osm_id, ST_Buffer(way, 150.0, 3) AS way FROM {{SRC_PREFIX}}_line WHERE highway IS NOT NULL;
 
 -- Step 2: Extract only buildings that have no road nearby
-CREATE TABLE {{DEST_PREFIX}}_noroad_buildings AS SELECT osm_id, way FROM {{SRC_PREFIX}}_polygon WHERE building IS NOT NULL AND osm_id NOT IN (SELECT b.osm_id FROM {{SRC_PREFIX}}_polygon b, {{DEST_PREFIX}}_roadbuffers r WHERE st_intersects(b.way, r.way));
+CREATE TABLE {{DEST_PREFIX}}_noroad_buildings AS
+SELECT osm_id, way FROM {{SRC_PREFIX}}_polygon WHERE building IS NOT NULL AND osm_id NOT IN (SELECT b.osm_id FROM {{SRC_PREFIX}}_polygon b, {{DEST_PREFIX}}_roadbuffers r WHERE st_intersects(b.way, r.way));
 
 -- Step 3: Buffer (remaining) buildings
-CREATE TABLE {{DEST_PREFIX}}_buildingbuffers AS SELECT osm_id, ST_Buffer(way, 25.0, 3) AS way FROM {{DEST_PREFIX}}_noroad_buildings;
+CREATE TABLE {{DEST_PREFIX}}_buildingbuffers AS
+SELECT osm_id, ST_Buffer(way, 25.0, 3) AS way FROM {{DEST_PREFIX}}_noroad_buildings;
 CREATE INDEX {{DEST_PREFIX}}_idx_buildingbuffers_id ON {{DEST_PREFIX}}_buildingbuffers(osm_id);
 CREATE INDEX {{DEST_PREFIX}}_idx_buildingbuffers_way ON {{DEST_PREFIX}}_buildingbuffers USING GIST(way);
 
 -- Step 4: Keep ONLY building buffers that overlap
 -- (slower but (hopefully) scaleable implementation)
 CREATE TABLE {{DEST_PREFIX}}_buildingoverlaps AS
-SELECT MAX(osm_id) AS osm_id, ST_Union(a.way) AS way
+SELECT osm_id AS osm_id, way
 FROM {{DEST_PREFIX}}_buildingbuffers a
-GROUP BY (SELECT MAX(b.osm_id) FROM {{DEST_PREFIX}}_buildingbuffers b WHERE a.osm_id = b.osm_id OR ST_Intersects(b.way, a.way))
-HAVING COUNT(*) > 1;
+WHERE (
+        SELECT COUNT(*) FROM {{DEST_PREFIX}}_buildingbuffers b
+        WHERE a.osm_id <> b.osm_id AND ST_Intersects(a.way, b.way)) > 0;
 
 -- Step 5: Buffer and cluster overlapping buildings
 -- (this should ensure that we get only one point for each cluster of buildings)
-CREATE TABLE {{DEST_PREFIX}}_buildingclusters AS SELECT (ST_Dump(ST_Union(ST_Buffer(way, 70, 3)))).geom AS way FROM {{DEST_PREFIX}}_buildingoverlaps;
+CREATE TABLE {{DEST_PREFIX}}_buildingclusters AS
+SELECT (ST_Dump(ST_Union(ST_Buffer(way, 70, 3)))).geom AS way FROM {{DEST_PREFIX}}_buildingoverlaps;
 
 -- Step 6: Use the centroids as task locations
-CREATE TABLE {{DEST_PREFIX}}_points AS SELECT ST_Centroid(way) AS way FROM {{DEST_PREFIX}}_buildingclusters;
+CREATE TABLE {{DEST_PREFIX}}_points AS
+SELECT ST_Centroid(way) AS way FROM {{DEST_PREFIX}}_buildingclusters;
 
 COMMIT;
 
