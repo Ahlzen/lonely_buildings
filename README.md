@@ -1,7 +1,7 @@
 lonely_buildings
 ================
 
-PostGIS scripts to find clusters of buildings in OSM with no nearby roadd. This is common, for example, in areas with recent building imports where roads have not caught up with new developments.
+PostGIS scripts to find clusters of buildings in OSM with no nearby road. This is common, for example, in areas with recent building imports where roads mapping has not caught up with new developments.
 
 
 ## Prerequisites
@@ -24,4 +24,5 @@ PostGIS scripts to find clusters of buildings in OSM with no nearby roadd. This 
 ## Author
 
 Lars Ahlzen
+
 lars@ahlzen.com
