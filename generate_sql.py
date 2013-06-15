@@ -4,7 +4,7 @@ import pystache
 
 basename = 'find_buildings'
 config = {
-  'SRC_PREFIX': 'whitman',  # prefix of source table, e.g. "planet_osm"
+  'SRC_PREFIX': 'brockton',  # prefix of source table, e.g. "planet_osm"
   'DEST_PREFIX': 'lonely' # prefix of desination tables, e.g. "lonely"
   }
         

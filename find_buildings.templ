@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Step 1: Buffer roads
-CREATE TABLE {{DEST_PREFIX}}_roadbuffers AS SELECT osm_id, ST_Buffer(way, 100.0, 3) AS way FROM {{SRC_PREFIX}}_line WHERE highway IS NOT NULL;
+CREATE TABLE {{DEST_PREFIX}}_roadbuffers AS SELECT osm_id, ST_Buffer(way, 150.0, 3) AS way FROM {{SRC_PREFIX}}_line WHERE highway IS NOT NULL;
 
 -- Step 2: Extract only buildings that have no road nearby
 CREATE TABLE {{DEST_PREFIX}}_noroad_buildings AS SELECT osm_id, way FROM {{SRC_PREFIX}}_polygon WHERE building IS NOT NULL AND osm_id NOT IN (SELECT b.osm_id FROM {{SRC_PREFIX}}_polygon b, {{DEST_PREFIX}}_roadbuffers r WHERE st_intersects(b.way, r.way));
