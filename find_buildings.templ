@@ -3,10 +3,18 @@ BEGIN;
 -- Step 1: Buffer roads
 CREATE TABLE {{DEST_PREFIX}}_roadbuffers AS
 SELECT osm_id, ST_Buffer(way, 150.0, 3) AS way FROM {{SRC_PREFIX}}_line WHERE highway IS NOT NULL;
+CREATE INDEX {{DEST_PREFIX}}_idx_roadbuffers ON {{DEST_PREFIX}}_roadbuffers USING GIST(way);
+
+-- Step 1.5: Get valid building polygons
+-- (IsValid is needed because osm2pgsql allows self-intersecting polygons)
+CREATE TABLE {{DEST_PREFIX}}_buildings AS
+SELECT osm_id, way FROM {{SRC_PREFIX}}_polygon WHERE building IS NOT NULL AND ST_IsValid(way);
+CREATE INDEX {{DEST_PREFIX}}_idx_buildings_id ON {{DEST_PREFIX}}_buildings(osm_id);
+CREATE INDEX {{DEST_PREFIX}}_idx_buildings_way ON {{DEST_PREFIX}}_buildings USING GIST(way);
 
 -- Step 2: Extract only buildings that have no road nearby
 CREATE TABLE {{DEST_PREFIX}}_noroad_buildings AS
-SELECT osm_id, way FROM {{SRC_PREFIX}}_polygon WHERE building IS NOT NULL AND osm_id NOT IN (SELECT b.osm_id FROM {{SRC_PREFIX}}_polygon b, {{DEST_PREFIX}}_roadbuffers r WHERE st_intersects(b.way, r.way));
+SELECT osm_id, way FROM {{DEST_PREFIX}}_buildings WHERE osm_id NOT IN (SELECT b.osm_id FROM {{DEST_PREFIX}}_buildings b, {{DEST_PREFIX}}_roadbuffers r WHERE ST_Intersects(b.way, r.way));
 
 -- Step 3: Buffer (remaining) buildings
 CREATE TABLE {{DEST_PREFIX}}_buildingbuffers AS
